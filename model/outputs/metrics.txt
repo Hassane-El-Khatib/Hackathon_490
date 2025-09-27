@@ -1,0 +1,9 @@
+Fraud Detection Model Evaluation Metrics
+==================================================
+
+Accuracy:  0.9801
+Precision: 0.5000
+Recall:    0.3333
+F1-Score:  0.4000
+ROC-AUC:   0.9643
+PR-AUC:    0.5597

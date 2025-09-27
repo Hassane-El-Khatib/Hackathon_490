@@ -509,6 +509,252 @@ else:
     2. Refresh this page to see detailed visualizations
     3. Explore fraud detection insights and patterns
     """)
+    alert_data = st.session_state.fraud_alert
+    st.markdown(f"""
+    <div id="fraud-alert-banner" style="
+        position: sticky;
+        top: 0;
+        z-index: 999;
+        background: linear-gradient(135deg, #e74c3c, #c0392b);
+        color: white;
+        padding: 20px;
+        margin: -1rem -1rem 2rem -1rem;
+        border-radius: 0 0 15px 15px;
+        box-shadow: 0 4px 20px rgba(231, 76, 60, 0.3);
+        animation: alertPulse 2s ease-in-out infinite alternate;
+    ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="flex-grow: 1;">
+                <h3 style="margin: 0; font-size: 1.5rem;">🚨 FRAUD ALERT 🚨</h3>
+                <p style="margin: 5px 0 0 0; font-size: 1.1rem;">
+                    Suspicious transaction detected with {alert_data['probability']:.1%} fraud probability
+                </p>
+                <p style="margin: 5px 0 0 0; font-size: 0.9rem; opacity: 0.9;">
+                    Transaction ID: {alert_data['transaction_id']} | Amount: ${alert_data['amount']:,.2f}
+                </p>
+            </div>
+            <div>
+                <button onclick="document.getElementById('fraud-alert-banner').style.display='none'; 
+                               window.parent.postMessage({{type: 'streamlit:setComponentValue', key: 'close_alert', value: true}}, '*');"
+                        style="
+                            background: rgba(255,255,255,0.2);
+                            border: 2px solid white;
+                            color: white;
+                            padding: 8px 12px;
+                            border-radius: 50%;
+                            cursor: pointer;
+                            font-size: 18px;
+                            font-weight: bold;
+                        ">×</button>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        @keyframes alertPulse {{
+            0% {{ box-shadow: 0 4px 20px rgba(231, 76, 60, 0.3); }}
+            100% {{ box-shadow: 0 8px 40px rgba(231, 76, 60, 0.6); }}
+        }}
+    </style>
+    """, unsafe_allow_html=True)
+    
+
+
+# Real-time Fraud Detection
+st.markdown("### 🤖 Real-Time Fraud Detection")
+st.markdown("Enter **complete transaction details** to get instant fraud detection results from our AI model.")
+
+# FRAUD DETECTION INPUT FORM
+st.markdown("#### 🎯 **FRAUD DETECTION INPUT FORM**")
+
+try:
+    # Try to load the detector
+    import sys
+    sys.path.append('model')
+    from inference import FraudDetector
+    import time
+    import random
+    
+    @st.cache_resource
+    def load_fraud_detector():
+        try:
+            return FraudDetector('model/outputs/model.pkl')
+        except Exception as e:
+            return None
+    
+    detector = load_fraud_detector()
+    
+    if not detector:
+        st.warning("⚠️ Model not loaded - Form will show demo results for testing")
+
+    # FRAUD DETECTION INPUT FORM - ALWAYS VISIBLE
+    with st.form("fraud_detection_form"):
+        st.markdown("#### 📋 Complete Transaction Information")
+        st.info("📝 Fill in ALL transaction details exactly as they would appear in the system")
+        
+        # Row 1: Basic Transaction Info
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            transaction_id = st.text_input("Transaction ID*", value="TXN" + str(random.randint(100000, 999999)), help="Unique transaction identifier")
+            account_id = st.text_input("Account ID*", value="ACC" + str(random.randint(1000, 9999)), help="Customer account identifier")
+        with col2:
+            transaction_amount = st.number_input("Transaction Amount ($)*", min_value=0.01, max_value=50000.0, value=100.0, step=0.01)
+            transaction_date = st.date_input("Transaction Date*", value=pd.Timestamp.now().date())
+        with col3:
+            transaction_type = st.selectbox("Transaction Type*", ["Online", "In-Store", "ATM", "Transfer", "Purchase", "Withdrawal"])
+            location = st.selectbox("Location*", ["New York", "California", "Texas", "Florida", "Illinois", "Nevada", "Arizona", "Washington"])
+        
+        # Row 2: Device and Network Info
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            device_id = st.text_input("Device ID*", value="DEV" + str(random.randint(10000, 99999)), help="Device identifier")
+            ip_address = st.text_input("IP Address*", value=f"{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}.{random.randint(1,255)}")
+        with col2:
+            merchant_id = st.text_input("Merchant ID*", value="MERCH" + str(random.randint(100, 999)))
+            channel = st.selectbox("Channel*", ["Online", "Branch", "ATM", "Mobile", "Phone"])
+        with col3:
+            customer_age = st.number_input("Customer Age*", min_value=18, max_value=100, value=35, step=1)
+            customer_occupation = st.selectbox("Customer Occupation*", ["Engineer", "Teacher", "Doctor", "Manager", "Student", "Retired", "Other"])
+        
+        # Row 3: Transaction Details
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            transaction_duration = st.number_input("Transaction Duration (seconds)*", min_value=1, max_value=600, value=45, step=1)
+            login_attempts = st.number_input("Login Attempts*", min_value=1, max_value=10, value=1, step=1)
+        with col2:
+            account_balance = st.number_input("Account Balance ($)*", min_value=0.0, max_value=1000000.0, value=5000.0, step=1.0)
+            previous_transaction_date = st.date_input("Previous Transaction Date*", value=(pd.Timestamp.now() - pd.Timedelta(days=3)).date())
+        with col3:
+            st.markdown("**Required Fields***")
+            st.markdown("All fields marked with * are required for accurate fraud detection")
+        
+        # Submit Button
+        submitted = st.form_submit_button("🛡️ **ANALYZE FOR FRAUD**", use_container_width=True, type="primary")
+        
+        if submitted:
+            # Prepare complete transaction data matching CSV structure
+            transaction_data = {
+                'TransactionID': transaction_id,
+                'AccountID': account_id,
+                'TransactionAmount': float(transaction_amount),
+                'TransactionDate': transaction_date.strftime('%Y-%m-%d'),
+                'TransactionType': transaction_type,
+                'Location': location,
+                'DeviceID': device_id,
+                'IP Address': ip_address,
+                'MerchantID': merchant_id,
+                'Channel': channel,
+                'CustomerAge': int(customer_age),
+                'CustomerOccupation': customer_occupation,
+                'TransactionDuration': int(transaction_duration),
+                'LoginAttempts': int(login_attempts),
+                'AccountBalance': float(account_balance),
+                'PreviousTransactionDate': previous_transaction_date.strftime('%Y-%m-%d'),
+            }
+            
+            if detector:
+                try:
+                    # Get prediction from model
+                    with st.spinner("🔍 Analyzing transaction with AI fraud detection model..."):
+                        result = detector.predict_single(transaction_data)
+                    
+                    fraud_prediction = result['fraud_prediction']
+                    fraud_probability = result['fraud_probability']
+                    
+                    if fraud_prediction == 1:
+                        # FRAUD DETECTED
+                        st.session_state.fraud_alert = {
+                            'transaction_id': transaction_id,
+                            'amount': transaction_amount,
+                            'probability': fraud_probability,
+                            'timestamp': pd.Timestamp.now()
+                        }
+                        
+                        # Show full screen alert
+                        st.markdown(f"""
+                        <div style="
+                            background: linear-gradient(135deg, rgba(231, 76, 60, 0.95), rgba(192, 57, 43, 0.95));
+                            color: white;
+                            padding: 40px;
+                            border-radius: 20px;
+                            text-align: center;
+                            margin: 20px 0;
+                            animation: fraudAlert 0.5s ease-in-out;
+                        ">
+                            <h1 style="font-size: 3rem; margin: 0;">🚨 FRAUD DETECTED 🚨</h1>
+                            <h2 style="font-size: 2rem; margin: 10px 0;">SUSPICIOUS TRANSACTION</h2>
+                            <p style="font-size: 1.5rem; margin: 20px 0;">
+                                Fraud Probability: {fraud_probability:.1%}<br>
+                                Transaction: {transaction_id}<br>
+                                Amount: ${transaction_amount:,.2f}
+                            </p>
+                            <p style="font-size: 1.2rem; opacity: 0.9;">
+                                🔒 Transaction BLOCKED for security review
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        st.error("🚨 **FRAUD DETECTED - TRANSACTION BLOCKED**")
+                        
+                    else:
+                        # NO FRAUD
+                        st.success("✅ **Transaction Verified - No Fraud Detected**")
+                        st.info(f"🔍 Fraud probability: {fraud_probability:.2%} | Status: APPROVED ✅")
+                        
+                except Exception as e:
+                    st.error(f"❌ **Fraud Detection Error:** {str(e)}")
+            else:
+                # Demo mode - show fake results for testing
+                fake_fraud_prob = random.uniform(0.05, 0.95)
+                if fake_fraud_prob > 0.5:
+                    # Demo fraud detection
+                    st.session_state.fraud_alert = {
+                        'transaction_id': transaction_id,
+                        'amount': transaction_amount,
+                        'probability': fake_fraud_prob,
+                        'timestamp': pd.Timestamp.now()
+                    }
+                    
+                    st.markdown(f"""
+                    <div style="
+                        background: linear-gradient(135deg, rgba(231, 76, 60, 0.95), rgba(192, 57, 43, 0.95));
+                        color: white;
+                        padding: 40px;
+                        border-radius: 20px;
+                        text-align: center;
+                        margin: 20px 0;
+                    ">
+                        <h1 style="font-size: 3rem; margin: 0;">🚨 FRAUD DETECTED 🚨</h1>
+                        <h2 style="font-size: 1.5rem; margin: 10px 0;">[DEMO MODE]</h2>
+                        <p style="font-size: 1.5rem; margin: 20px 0;">
+                            Demo Fraud Probability: {fake_fraud_prob:.1%}<br>
+                            Transaction: {transaction_id}<br>
+                            Amount: ${transaction_amount:,.2f}
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    
+                    st.error("🚨 **[DEMO] FRAUD DETECTED**")
+                else:
+                    st.success("✅ **[DEMO] Transaction Verified - No Fraud Detected**")
+                    st.info(f"🔍 Demo fraud probability: {fake_fraud_prob:.2%} | Status: APPROVED ✅")
+
+except ImportError as e:
+    st.error("❌ **Missing Dependencies**")
+    st.warning("⚠️ Fraud detection model dependencies are not available.")
+    st.info("💡 **To install:** Run `pip install -r requirements.txt`")
+except Exception as e:
+    st.error(f"❌ **System Error:** {str(e)}")
+
+# Footer info
+st.markdown("""
+<div class="footer-section">
+    <div class="footer-text">
+        🔒 Your data is secure and encrypted<br>
+        Built for EECE490 Hackathon
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 # Footer info
 st.markdown("""

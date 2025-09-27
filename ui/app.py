@@ -30,7 +30,7 @@ def load_transaction_data():
     """Load the cleaned and processed transaction data"""
     try:
         # Load the cleaned dataset from EDA.py
-        df = pd.read_csv("bank_transactions_processed_final.csv")
+        df = pd.read_csv("bank_transactions_raw_with_fraud.csv")
         
         # Convert TransactionDate to datetime if it exists
         if 'TransactionDate' in df.columns:
@@ -176,139 +176,6 @@ if not data.empty:
         fig_box.update_yaxes(title_font_color="#cbd5e0", tickfont_color="#a0aec0")
         st.plotly_chart(fig_box, use_container_width=True)
 
-# Daily/Weekly Transaction Volume
-if not data.empty and 'TransactionDate' in data.columns and not data['TransactionDate'].isna().all():
-    st.markdown("### 📈 Transaction Volume Over Time")
-    
-    # Create daily aggregation
-    daily_data = data.groupby(data['TransactionDate'].dt.date).agg({
-        'TransactionAmount': ['count', 'sum']
-    }).reset_index()
-    
-    daily_data.columns = ['Date', 'Transaction_Count', 'Total_Amount']
-    daily_data['Date'] = pd.to_datetime(daily_data['Date'])
-    
-    # Create dual-axis chart
-    fig = make_subplots(
-        rows=1, cols=1,
-        specs=[[{"secondary_y": True}]]
-    )
-    
-    # Add transaction count
-    fig.add_trace(
-        go.Scatter(
-            x=daily_data['Date'],
-            y=daily_data['Transaction_Count'],
-            mode='lines+markers',
-            name='Transaction Count',
-            line=dict(color='#667eea', width=2),
-            marker=dict(size=4)
-        ),
-        secondary_y=False
-    )
-    
-    # Add total amount
-    fig.add_trace(
-        go.Scatter(
-            x=daily_data['Date'],
-            y=daily_data['Total_Amount'],
-            mode='lines+markers',
-            name='Total Amount ($)',
-            line=dict(color='#f093fb', width=2),
-            marker=dict(size=4)
-        ),
-        secondary_y=True
-    )
-    
-    fig.update_layout(
-        title="Daily Transaction Volume and Count",
-        height=500,
-        hovermode='x unified',
-        showlegend=True,
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        margin=dict(t=50, l=0, r=0, b=0),
-        title_font_family="Poppins",
-        title_font_color="#f7fafc",
-        font=dict(family="Inter", color="#e2e8f0"),
-        legend=dict(
-            font_color="#e2e8f0",
-            bgcolor="rgba(0,0,0,0)"
-        )
-    )
-    
-    fig.update_xaxes(title_text="Date", title_font_color="#cbd5e0", tickfont_color="#a0aec0")
-    fig.update_yaxes(title_text="Number of Transactions", secondary_y=False, title_font_color="#cbd5e0", tickfont_color="#a0aec0")
-    fig.update_yaxes(title_text="Total Amount ($)", secondary_y=True, title_font_color="#cbd5e0", tickfont_color="#a0aec0")
-    
-    st.plotly_chart(fig, use_container_width=True)
-
-# Weekly analysis
-if not data.empty and 'TransactionDate' in data.columns:
-    st.markdown("### 📅 Weekly Transaction Pattern")
-    
-    # Add day of week analysis
-    data_with_weekday = data.copy()
-    data_with_weekday['DayOfWeek'] = data_with_weekday['TransactionDate'].dt.day_name()
-    data_with_weekday['Hour'] = data_with_weekday['TransactionDate'].dt.hour
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Weekly pattern
-        weekly_data = data_with_weekday.groupby('DayOfWeek')['TransactionAmount'].agg(['count', 'sum']).reset_index()
-        
-        # Order days correctly
-        day_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-        weekly_data['DayOfWeek'] = pd.Categorical(weekly_data['DayOfWeek'], categories=day_order, ordered=True)
-        weekly_data = weekly_data.sort_values('DayOfWeek')
-        
-        fig_week_count = px.bar(
-            weekly_data,
-            x='DayOfWeek',
-            y='count',
-            title="Transactions by Day of Week",
-            labels={'count': 'Number of Transactions', 'DayOfWeek': 'Day'},
-            color='count',
-            color_continuous_scale='viridis'
-        )
-        fig_week_count.update_layout(
-            height=400, 
-            showlegend=False,
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            title_font_family="Poppins",
-            title_font_color="#f7fafc",
-            font=dict(family="Inter", color="#e2e8f0")
-        )
-        fig_week_count.update_xaxes(title_font_color="#cbd5e0", tickfont_color="#a0aec0")
-        fig_week_count.update_yaxes(title_font_color="#cbd5e0", tickfont_color="#a0aec0")
-        st.plotly_chart(fig_week_count, use_container_width=True)
-    
-    with col2:
-        # Hourly pattern
-        hourly_data = data_with_weekday.groupby('Hour')['TransactionAmount'].count().reset_index()
-        
-        fig_hour = px.line(
-            hourly_data,
-            x='Hour',
-            y='TransactionAmount',
-            title="Transactions by Hour of Day",
-            labels={'TransactionAmount': 'Number of Transactions'},
-            markers=True
-        )
-        fig_hour.update_traces(line_color='#764ba2', marker_color='#667eea')
-        fig_hour.update_layout(
-            height=400,
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            title_font_family="Poppins",
-            title_font_color="#f7fafc",
-            font=dict(family="Inter", color="#e2e8f0")
-        )
-        fig_hour.update_xaxes(title_font_color="#cbd5e0", tickfont_color="#a0aec0")
-        fig_hour.update_yaxes(title_font_color="#cbd5e0", tickfont_color="#a0aec0")
-        st.plotly_chart(fig_hour, use_container_width=True)
 
 # Transaction Type Analysis
 if not data.empty and 'TransactionType' in data.columns:

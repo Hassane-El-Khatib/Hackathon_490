@@ -756,12 +756,3 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# Footer info
-st.markdown("""
-<div class="footer-section">
-    <div class="footer-text">
-        🔒 Your data is secure and encrypted<br>
-        Built for EECE490 Hackathon
-    </div>
-</div>
-""", unsafe_allow_html=True)

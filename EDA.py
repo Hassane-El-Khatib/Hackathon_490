@@ -1,11 +1,14 @@
-# Full EDA + preprocessing + IsolationForest + KMeans pipeline
+# Full EDA + preprocessing + IsolationForest
 # Save as e.g. eda_bank_transactions.py and run with python3
 import pandas as pd
 import numpy as np
 from sklearn.ensemble import IsolationForest
-from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.impute import SimpleImputer
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.decomposition import PCA
+
 
 # === CONFIG ===
 INPUT_CSV = "bank_transactions_data_2.csv"
@@ -90,15 +93,128 @@ data['isolation_anomaly'] = (iso_preds == -1).astype(int)
 print("Anomalies found:", data['isolation_anomaly'].sum())
 
 # 9) K-Means clustering (k = KM_CLUSTERS)
-km = KMeans(n_clusters=KM_CLUSTERS, n_init=10, random_state=42)
-data['kmeans_cluster'] = km.fit_predict(X_scaled)
-print("Cluster counts:\n", data['kmeans_cluster'].value_counts())
+#km = KMeans(n_clusters=KM_CLUSTERS, n_init=10, random_state=42)
+#data['kmeans_cluster'] = km.fit_predict(X_scaled)
+#print("Cluster counts:\n", data['kmeans_cluster'].value_counts())
 
 # 10) Save outputs
 #data.to_csv(CLUSTERED_OUT, index=False)
 #data[data['isolation_anomaly'] == 1].to_csv(ANOMALIES_OUT, index=False)
 #print("Wrote:", CLUSTERED_OUT)
 #print("Wrote:", ANOMALIES_OUT)
+
+print("Basic info:")
+print(data.info())
+print(data.describe())
+
+# Numeric distributions
+if num_cols:
+    data[num_cols].hist(bins=30, figsize=(12,8))
+    plt.suptitle("Numeric Features Distribution")
+    plt.show()
+
+# Categorical counts
+for c in cat_cols:
+    if c != "'MerchantID" and c != "ip_prefix":
+        plt.figure(figsize=(8,4))
+        sns.countplot(y=data[c])
+        plt.title(f"Distribution of {c}")
+        plt.show()
+
+if 'time_diff_days' in data.columns:
+    plt.figure(figsize=(8,4))
+    sns.histplot(data['time_diff_days'].dropna(), bins=50, kde=True)
+    plt.title("Distribution of Time Differences Between Transactions (days)")
+    plt.xlabel("Time difference (days)")
+    plt.show()
+
+if 'age_group' in data.columns:
+    plt.figure(figsize=(8,4))
+    sns.countplot(x='age_group', data=data, order=['<18','18-25','26-35','36-50','51-65','65+'])
+    plt.title("Customer Age Groups")
+    plt.show()
+'''
+if num_cols:
+    plt.figure(figsize=(12,4))
+    sns.heatmap(data[num_cols].isna(), cbar=False)
+    plt.title("Missing Values Heatmap (after imputation)")
+    plt.show()
+
+for c in cat_cols:
+    enc_col = c + "_enc"
+    if enc_col in data.columns:
+        plt.figure(figsize=(6,3))
+        sns.histplot(data[enc_col], bins=len(data[c].unique()))
+        plt.title(f"Encoded values for {c}")
+        plt.show()
+'''
+if 'isolation_anomaly' in data.columns:
+    plt.figure(figsize=(6,3))
+    sns.countplot(x='isolation_anomaly', data=data)
+    plt.title("Number of anomalies detected by Isolation Forest")
+    plt.show()
+
+    # Example scatter of two key numeric features
+    key_features = [f for f in ['TransactionAmount','time_diff_days'] if f in data.columns]
+    if len(key_features) == 2:
+        plt.figure(figsize=(8,5))
+        sns.scatterplot(
+            x=key_features[0], y=key_features[1],
+            hue='isolation_anomaly', data=data, palette={0:'blue',1:'red'}
+        )
+        plt.title(f"{key_features[0]} vs {key_features[1]} (Anomalies in red)")
+        plt.show()
+
+# PCA projection for visualization
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X_scaled)
+data['pca1'] = X_pca[:,0]
+data['pca2'] = X_pca[:,1]
+
+#plt.figure(figsize=(8,5))
+#sns.scatterplot(x='pca1', y='pca2', hue='kmeans_cluster', data=data, palette='tab10')
+#plt.title("K-Means Clusters (PCA projection)")
+#plt.show()
+
+# Overlay anomalies
+if 'isolation_anomaly' in data.columns:
+    plt.figure(figsize=(8,5))
+    sns.scatterplot(x='pca1', y='pca2', hue='isolation_anomaly', data=data, palette={0:'blue',1:'red'})
+    plt.title("Anomalies in PCA space")
+    plt.show()
+
+
+# -------------------------
+# 1️⃣ Add fraud_label column
+# -------------------------
+data['fraud_label'] = data['isolation_anomaly']  # 1 = fraud/anomaly, 0 = legitimate
+
+# -------------------------
+# 2️⃣ Drop original/unnecessary columns
+# Keep only processed columns and labels
+# -------------------------
+# Columns to remove (original/raw ones)
+raw_cols_to_drop = [
+    'TransactionDate', 
+    'PreviousTransactionDate',
+    'TransactionID', 'ID', 'DeviceID', 'Device ID', 'IP Address', 'IP',
+    'CustomerOccupation', 'Occupation',
+    'CustomerAge',  # original numeric age, we have age_group
+    'isolation_anomaly',  # replaced by fraud_label
+    'TransactionDate_parsed', 'PreviousTransactionDate_parsed'
+]
+
+# Drop only existing columns
+data_cleaned = data.drop(columns=[c for c in raw_cols_to_drop if c in data.columns])
+
+# -------------------------
+# 3️⃣ Save cleaned and labeled dataset
+# -------------------------
+FINAL_CSV = "bank_transactions_processed_final.csv"
+data_cleaned.to_csv(FINAL_CSV, index=False)
+print(f"Processed, labeled, and cleaned dataset saved to {FINAL_CSV}")
+
+
 
 # === Simple diagnostics to print ===
 print("\nTop correlations with isolation_anomaly (numeric):")

@@ -115,7 +115,7 @@ if num_cols:
 
 # Categorical counts
 for c in cat_cols:
-    if c != "'MerchantID" and c != "ip_prefix":
+    if c != "MerchantID" and c != "ip_prefix":
         plt.figure(figsize=(8,4))
         sns.countplot(y=data[c])
         plt.title(f"Distribution of {c}")
@@ -185,12 +185,12 @@ if 'isolation_anomaly' in data.columns:
 
 
 # -------------------------
-# 1️⃣ Add fraud_label column
+# Add fraud_label column
 # -------------------------
 data['fraud_label'] = data['isolation_anomaly']  # 1 = fraud/anomaly, 0 = legitimate
 
 # -------------------------
-# 2️⃣ Drop original/unnecessary columns
+# Drop original/unnecessary columns
 # Keep only processed columns and labels
 # -------------------------
 # Columns to remove (original/raw ones)
@@ -208,7 +208,7 @@ raw_cols_to_drop = [
 data_cleaned = data.drop(columns=[c for c in raw_cols_to_drop if c in data.columns])
 
 # -------------------------
-# 3️⃣ Save cleaned and labeled dataset
+# Save cleaned and labeled dataset
 # -------------------------
 FINAL_CSV = "bank_transactions_processed_final.csv"
 data_cleaned.to_csv(FINAL_CSV, index=False)
